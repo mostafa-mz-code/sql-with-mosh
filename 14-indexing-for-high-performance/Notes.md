@@ -110,6 +110,27 @@ Think of your table as a massive unsorted pile of papers, and an index as a fili
 
 This is exactly what Mosh builds on when he gets to query optimization and `EXPLAIN` plans — so you're in great shape for what's coming!
 
-
 ## Viewing Indexes
 
+Viewing Indexes is purely for developers and database administrators,
+
+you can run `SHOW INDEXES ON table_name` to see the output.
+
+When you run SHOW INDEXES FROM table_name; (or SHOW KEYS), MySQL returns a table where each row represents a part of an index.
+Here is the breakdown of what those columns mean:
+
+- Table: The name of the table.
+- Non_unique: 0 if the index cannot contain duplicates (like a PRIMARY or UNIQUE key), and 1 if it can.
+- Key_name: The name of the index. If it’s the primary key, this will always be PRIMARY.
+- Seq_in_index: The column sequence number in the index, starting with 1. For multi-column (composite) indexes, this shows the order of the columns.
+- Column_name: The name of the column being indexed.
+- Collation: How the column is sorted in the index. A stands for ascending, D for descending, or NULL if not sorted.
+- Cardinality: An estimate of the number of unique values in the index. Higher cardinality usually means the index is more effective for the optimizer.
+- Sub_part: The number of indexed characters if the column is only partially indexed (e.g., prefix indexing on a TEXT column). NULL means the entire column is indexed.
+- Packed: Indicates how the key is packed. NULL if it isn’t.
+- Null: Contains YES if the column may contain NULL values and '' (blank) if it cannot.
+- Index_type: The indexing method used (usually BTREE, but can be FULLTEXT, HASH, or SPATIAL).
+- Comment: Information about the index not described in its own column (e.g., if the index is DISABLED).
+- Index_comment: Any comment provided with the COMMENT attribute when the index was created.
+- Visible: YES if the index is visible to the optimizer, NO if it is invisible (MySQL 8.0+).
+- Expression: For functional indexes, this displays the expression for the column (MySQL 8.0+).
