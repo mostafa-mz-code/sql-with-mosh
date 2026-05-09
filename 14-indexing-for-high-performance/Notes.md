@@ -134,3 +134,72 @@ Here is the breakdown of what those columns mean:
 - Index_comment: Any comment provided with the COMMENT attribute when the index was created.
 - Visible: YES if the index is visible to the optimizer, NO if it is invisible (MySQL 8.0+).
 - Expression: For functional indexes, this displays the expression for the column (MySQL 8.0+).
+
+## Prefix Indexes
+
+When creating indexes and the column we're adding index to it is of type `STRING COLUMN` like `CHAR, VARCHAR, TEXT, BLOB`, we don't wanna include the entire content of that column in out index, it's gonna take a lot of space and would be really slow. We want our indexes to be small as possible while maintaining a decent uniqueness to be fast as possible. so basically we take a few characters from the column for the prefix of the column so our index would be smaller.
+
+A prefix index in MySQL is a specialized index that only stores the first $N$ characters of a string column rather than the entire value. This is commonly used for long VARCHAR, TEXT, or BLOB columns to save disk space and speed up indexing. [1, 2, 3, 4]
+
+## Why Use Prefix Indexes?
+
+- Space Savings: Storing just the first 10–20 characters of a long text field takes up significantly less space on disk and in memory (the InnoDB buffer pool) than indexing the full text.
+- Mandatory for Large Types: In MySQL, you cannot create a full-column index on TEXT or BLOB columns; you must specify a prefix length.
+- Bypass Key Size Limits: InnoDB has an index key length limit (767 or 3072 bytes depending on configuration). If your column exceeds this, a prefix index is the only way to index it. [2, 3, 5, 6]
+
+## Syntax
+
+You specify the prefix length in parentheses after the column name. [7]
+
+-- Creates an index on only the first 10 characters of the 'email' columnCREATE INDEX idx_email_prefix ON users(email(10));
+
+## Key Limitations
+
+- No Covering Indexes: Because the index only contains part of the data, MySQL cannot use it to satisfy a query entirely from the index. It must always "look up" the actual table row to verify the full value.
+- No Sorting/Grouping: Prefix indexes cannot be used for ORDER BY or GROUP BY operations because the index is only sorted based on the prefix, not the full string.
+- Selectivity Loss: If many rows have the same prefix (e.g., many people sharing the same first 5 characters of a last name), the index becomes less effective at filtering results.
+
+## How to Choose a Prefix Length
+
+The goal is to find the smallest number of characters that still uniquely identifies most rows (high selectivity). You can test this by running:
+
+```sql
+
+SELECT
+COUNT(DISTINCT LEFT(column*name, 5)) / COUNT(*) AS selectivity*at_5,
+COUNT(DISTINCT LEFT(column_name, 10)) / COUNT(*) AS selectivity_at_10,
+COUNT(DISTINCT column_name) / COUNT(\*) AS full_selectivityFROM table_name;
+
+```
+
+Look for the prefix length where the selectivity is close to the "full selectivity" of the column.
+
+### The LEFT Function
+
+Yes, LEFT() is a built-in string function in MySQL.
+It extracts a specific number of characters from the left side (the beginning) of a string.
+
+## How it works:
+
+LEFT(string, length)
+
+- string: The column or text you want to chop.
+- length: How many characters you want to grab from the start.
+
+## Example:
+
+If you have a column with the value 'Database', running LEFT('Database', 4) will return 'Data'.
+
+## Why we use it for indexing:
+
+In the context of prefix indexes, we use LEFT() to test how unique the data is before actually creating the index.
+For example, if you run:
+
+SELECT LEFT(email, 5) FROM users;
+
+It shows you what the database would "see" if you created a prefix index of 5 characters. If the first 5 characters are almost always the same (like admin...), a prefix index of that length won't be very helpful for performance.
+Pro-tip: There is also a RIGHT() function that does the exact same thing but starts from the end of the string.
+Do you want to see any other string manipulation functions like SUBSTRING or CONCAT?
+
+
+## Full Text Indexes
